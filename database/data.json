@@ -1,0 +1,5 @@
+[
+  { "id": 1, "title": "Setup CI/CD Pipeline", "status": "In Progress" },
+  { "id": 2, "title": "Dockerize 3-Tier Application", "status": "Pending" },
+  { "id": 3, "title": "Deploy to Kubernetes", "status": "Goal" }
+]
