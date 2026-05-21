@@ -126,7 +126,7 @@ function App() {
 
         {/* Copyright Footer */}
         <footer style={styles.footer}>
-          © {new Date().getFullYear()} Andrew Ferdinandus. All Rights Reserved.
+          © {new Date().getFullYear()} Andrew Ferdinandus.
         </footer>
       </div>
     </div>
