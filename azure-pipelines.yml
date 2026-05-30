@@ -34,6 +34,10 @@ stages:
           vmImage: ubuntu-latest
         steps:
           - script: |
+              echo "Current commit: $(Build.SourceVersion)"
+              echo "Dockerfile content used by pipeline:"
+              cat backend/Dockerfile
+
               echo "$(REGISTRY_PASSWORD)" | docker login "$(REGISTRY_LOGIN_SERVER)" \
                 --username "$(REGISTRY_USERNAME)" \
                 --password-stdin
