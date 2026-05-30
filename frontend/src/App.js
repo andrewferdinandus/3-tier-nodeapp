@@ -6,7 +6,7 @@ function App() {
   const [dbStatus, setDbStatus] = useState('Checking...');
   const [loading, setLoading] = useState(true);
 
-  const BACKEND_URL = 'http://localhost:5001/api';
+  const BACKEND_URL = '/api';
 
   useEffect(() => {
     fetchTasks();
@@ -14,7 +14,7 @@ function App() {
   }, []);
 
   const checkHealth = () => {
-    fetch('http://localhost:5001/health')
+    fetch('/health')
       .then(res => res.json())
       .then(data => setDbStatus(data.database === 'CONNECTED' ? 'Connected' : 'Disconnected'))
       .catch(() => setDbStatus('Disconnected'));

@@ -4,9 +4,11 @@ trigger:
       - main
 
 variables:
-  IMAGE_NAME: node-backend
+  BACKEND_IMAGE_NAME: node-backend
+  FRONTEND_IMAGE_NAME: node-frontend
   APP_NAMESPACE: practitioner-azure-devops
-  APP_DEPLOYMENT: node-backend
+  BACKEND_DEPLOYMENT: node-backend
+  FRONTEND_DEPLOYMENT: node-frontend
 
 stages:
   - stage: Validate
@@ -20,13 +22,19 @@ stages:
               test -f backend/Dockerfile
               test -f backend/package.json
               test -f backend/server.js
+              test -f frontend/Dockerfile
+              test -f frontend/nginx.conf
+              test -f frontend/package.json
+              test -f frontend/src/App.js
               test -f k8s/namespace.yaml
               test -f k8s/backend-deployment.yaml
+              test -f k8s/frontend-deployment.yaml
               grep -q "IMAGE_PLACEHOLDER" k8s/backend-deployment.yaml
+              grep -q "IMAGE_PLACEHOLDER" k8s/frontend-deployment.yaml
             displayName: Validate required files
 
   - stage: BuildPush
-    displayName: Build and push image
+    displayName: Build and push images
     dependsOn: Validate
     jobs:
       - job: BuildPush
@@ -34,20 +42,22 @@ stages:
           vmImage: ubuntu-latest
         steps:
           - script: |
-              echo "Current commit: $(Build.SourceVersion)"
-              echo "Dockerfile content used by pipeline:"
-              cat backend/Dockerfile
-
               echo "$(REGISTRY_PASSWORD)" | docker login "$(REGISTRY_LOGIN_SERVER)" \
                 --username "$(REGISTRY_USERNAME)" \
                 --password-stdin
 
               docker build \
-                -t "$(REGISTRY_LOGIN_SERVER)/$(IMAGE_NAME):$(Build.SourceVersion)" \
+                -t "$(REGISTRY_LOGIN_SERVER)/$(BACKEND_IMAGE_NAME):$(Build.SourceVersion)" \
                 backend
 
-              docker push "$(REGISTRY_LOGIN_SERVER)/$(IMAGE_NAME):$(Build.SourceVersion)"
-            displayName: Build and push backend image
+              docker push "$(REGISTRY_LOGIN_SERVER)/$(BACKEND_IMAGE_NAME):$(Build.SourceVersion)"
+
+              docker build \
+                -t "$(REGISTRY_LOGIN_SERVER)/$(FRONTEND_IMAGE_NAME):$(Build.SourceVersion)" \
+                frontend
+
+              docker push "$(REGISTRY_LOGIN_SERVER)/$(FRONTEND_IMAGE_NAME):$(Build.SourceVersion)"
+            displayName: Build and push backend and frontend images
 
   - stage: Deploy
     displayName: Deploy to AKS
@@ -72,7 +82,8 @@ stages:
 
               az aks install-cli
 
-              IMAGE="$(REGISTRY_LOGIN_SERVER)/$(IMAGE_NAME):$(Build.SourceVersion)"
+              BACKEND_IMAGE="$(REGISTRY_LOGIN_SERVER)/$(BACKEND_IMAGE_NAME):$(Build.SourceVersion)"
+              FRONTEND_IMAGE="$(REGISTRY_LOGIN_SERVER)/$(FRONTEND_IMAGE_NAME):$(Build.SourceVersion)"
 
               kubectl apply -f k8s/namespace.yaml
               kubectl apply -f k8s/mysql-secret.yaml
@@ -81,10 +92,12 @@ stages:
               kubectl apply -f k8s/mysql-deployment.yaml
               kubectl apply -f k8s/mysql-service.yaml
 
-              sed "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/backend-deployment.yaml | kubectl apply -f -
-
+              sed "s|IMAGE_PLACEHOLDER|$BACKEND_IMAGE|g" k8s/backend-deployment.yaml | kubectl apply -f -
               kubectl apply -f k8s/backend-service.yaml
-            displayName: Deploy MySQL and backend
+
+              sed "s|IMAGE_PLACEHOLDER|$FRONTEND_IMAGE|g" k8s/frontend-deployment.yaml | kubectl apply -f -
+              kubectl apply -f k8s/frontend-service.yaml
+            displayName: Deploy MySQL, backend, and frontend
 
   - stage: Verify
     displayName: Verify deployment
@@ -110,7 +123,8 @@ stages:
               az aks install-cli
 
               kubectl rollout status deployment/mysql -n "$(APP_NAMESPACE)" --timeout=180s
-              kubectl rollout status deployment/$(APP_DEPLOYMENT) -n "$(APP_NAMESPACE)" --timeout=180s
+              kubectl rollout status deployment/$(BACKEND_DEPLOYMENT) -n "$(APP_NAMESPACE)" --timeout=180s
+              kubectl rollout status deployment/$(FRONTEND_DEPLOYMENT) -n "$(APP_NAMESPACE)" --timeout=180s
 
               kubectl get pods -n "$(APP_NAMESPACE)"
               kubectl get svc -n "$(APP_NAMESPACE)"
